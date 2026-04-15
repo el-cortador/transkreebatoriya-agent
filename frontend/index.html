@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transkreebatoriya - ИИ-транскрибация</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Transkreebatoriya</h1>
+        <p class="subtitle">ИИ-агент для транскрибации аудио и видео файлов</p>
+        
+        <!-- Зона загрузки -->
+        <div id="drop-zone" class="drop-zone">
+            <p>Перетащите файл сюда или нажмите для выбора</p>
+            <input type="file" id="file-input" hidden>
+        </div>
+        
+        <!-- Индикатор состояния -->
+        <div id="status-indicator" class="status-indicator" style="display: none;">
+            <div class="spinner"></div>
+            <p id="status-text">Обработка...</p>
+        </div>
+        
+        <!-- Зона результата -->
+        <div id="result-zone" class="result-zone" style="display: none;">
+            <div id="result-text" class="result-text"></div>
+            <div class="result-actions">
+                <button id="copy-btn" class="btn btn-secondary">Скопировать в буфер</button>
+                <button id="download-btn" class="btn btn-primary">Скачать .md</button>
+            </div>
+        </div>
+        
+        <!-- Зона ошибок -->
+        <div id="error-zone" class="error-zone" style="display: none;">
+            <p id="error-text"></p>
+        </div>
+    </div>
+    
+    <script src="/static/app.js"></script>
+</body>
+</html>
