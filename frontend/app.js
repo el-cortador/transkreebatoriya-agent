@@ -41,10 +41,27 @@ fileInput.addEventListener('change', (e) => {
     }
 });
 
-// Обработка файла
+// Обработка файла с валидацией
 async function handleFile(file) {
     hideError();
     hideResult();
+    
+    // Валидация формата файла
+    const allowedExtensions = ['.mp3', '.mp4', '.wav', '.m4a', '.mkv', '.flac', '.ogg', '.webm', '.avi', '.mov'];
+    const fileExtension = '.' + file.name.split('.').pop().toLowerCase();
+    
+    if (!allowedExtensions.includes(fileExtension)) {
+        showError(`Неподдерживаемый формат файла. Поддерживаемые: ${allowedExtensions.join(', ')}`);
+        return;
+    }
+    
+    // Валидация размера файла (6 ГБ)
+    const maxSize = 6 * 1024 * 1024 * 1024; // 6 ГБ в байтах
+    if (file.size > maxSize) {
+        showError('Файл слишком большой. Максимальный размер: 6 ГБ');
+        return;
+    }
+    
     showStatus('Загрузка файла...');
     
     const formData = new FormData();

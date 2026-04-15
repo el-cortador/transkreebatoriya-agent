@@ -29,3 +29,9 @@ tools/whisper.cpp/models/
 # OS
 .DS_Store
 Thumbs.db
+
+# Other
+roadmap.md
+*.png
+*.jpeg
+.qwen
