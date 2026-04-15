@@ -1,18 +1,31 @@
 """
-Сервис транскрибации через whisper.cpp.
+Сервис транскрибации через openai-whisper.
 """
 
-import subprocess
+import whisper
 import logging
 from pathlib import Path
-from config import WHISPER_CPP_PATH, WHISPER_MODEL_PATH
+from config import WHISPER_MODEL_NAME
 
 logger = logging.getLogger(__name__)
+
+# Глобальная модель (загружается один раз)
+_model = None
+
+
+def _load_model():
+    """Ленивая загрузка модели."""
+    global _model
+    if _model is None:
+        logger.info(f"Загрузка модели whisper {WHISPER_MODEL_NAME}...")
+        _model = whisper.load_model(WHISPER_MODEL_NAME)
+        logger.info("Модель загружена.")
+    return _model
 
 
 async def transcribe_audio(wav_path: Path) -> str:
     """
-    Транскрибирует аудиофайл через whisper.cpp CLI.
+    Транскрибирует аудиофайл через openai-whisper.
     
     Args:
         wav_path: Путь к WAV файлу
@@ -20,38 +33,14 @@ async def transcribe_audio(wav_path: Path) -> str:
     Returns:
         Сырой текст транскрибации
     """
-    if not WHISPER_CPP_PATH.exists():
-        raise RuntimeError(f"whisper.cpp не найден: {WHISPER_CPP_PATH}")
+    model = _load_model()
     
-    if not WHISPER_MODEL_PATH.exists():
-        raise RuntimeError(f"Модель whisper не найдена: {WHISPER_MODEL_PATH}")
-    
-    cmd = [
-        str(WHISPER_CPP_PATH),
-        "-m", str(WHISPER_MODEL_PATH),
-        "-f", str(wav_path),
-        "--output-txt"
-    ]
+    if not wav_path.exists():
+        raise RuntimeError(f"Аудиофайл не найден: {wav_path}")
     
     try:
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=3600,  # 1 час максимум
-            check=True
-        )
-        
-        # Читаем выходной файл (whisper создаёт .txt с тем же именем)
-        output_txt = wav_path.with_suffix(".txt")
-        if output_txt.exists():
-            return output_txt.read_text(encoding="utf-8")
-        else:
-            return result.stdout
-            
-    except subprocess.TimeoutExpired:
-        logger.error("Транскрибация превысила таймаут")
-        raise RuntimeError("Превышено время транскрибации")
-    except subprocess.CalledProcessError as e:
-        logger.error(f"Ошибка whisper.cpp: {e.stderr}")
-        raise RuntimeError(f"Ошибка транскрибации: {e.stderr}")
+        result = model.transcribe(str(wav_path), language="ru", fp16=False)
+        return result.get("text", "").strip()
+    except Exception as e:
+        logger.error(f"Ошибка транскрибации: {str(e)}")
+        raise RuntimeError(f"Ошибка транскрибации: {str(e)}")

@@ -10,16 +10,15 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 TEMP_DIR = BASE_DIR / "temp"
 TOOLS_DIR = BASE_DIR / "tools"
 
-# whisper.cpp
-WHISPER_CPP_PATH = TOOLS_DIR / "whisper.cpp" / "main"
-WHISPER_MODEL_PATH = TOOLS_DIR / "whisper.cpp" / "models" / "ggml-base.bin"
+# whisper (Python openai-whisper)
+WHISPER_MODEL_NAME = "base"
 
 # ffmpeg
 FFMPEG_PATH = "ffmpeg"  # Предполагается, что в PATH
 
 # Ollama
 OLLAMA_API_URL = "http://localhost:11434/api/generate"
-OLLAMA_MODEL = "llama3"
+OLLAMA_MODEL = "qwen3:4b"
 
 # Лимиты
 MAX_FILE_SIZE = 6 * 1024 * 1024 * 1024  # 6 ГБ
