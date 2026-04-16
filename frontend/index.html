@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Transkreebatoriya - ИИ-транскрибация</title>
+    <title>Транскрибатория - ИИ-транскрибатор</title>
     <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
     <div class="container">
-        <h1>Transkreebatoriya</h1>
+        <h1>Транскрибатория</h1>
         <p class="subtitle">ИИ-агент для транскрибации аудио и видео файлов</p>
         
         <!-- Зона загрузки -->
@@ -16,11 +16,27 @@
             <p>Перетащите файл сюда или нажмите для выбора</p>
             <input type="file" id="file-input" hidden>
         </div>
+
+        <!-- Настройки обработки -->
+        <div class="options-row">
+            <label class="toggle-label">
+                <input type="checkbox" id="postprocess-toggle" checked>
+                <span>Постобработка через ИИ</span>
+                <span class="toggle-hint">(пунктуация, абзацы, спикеры — медленно)</span>
+            </label>
+        </div>
         
         <!-- Индикатор состояния -->
         <div id="status-indicator" class="status-indicator" style="display: none;">
             <div class="spinner"></div>
             <p id="status-text">Обработка...</p>
+            <div class="progress-wrap">
+                <div class="progress-track">
+                    <div id="progress-bar" class="progress-bar"></div>
+                </div>
+                <span id="progress-pct" class="progress-pct">0%</span>
+            </div>
+            <p id="eta-text" class="eta-text"></p>
         </div>
         
         <!-- Зона результата -->

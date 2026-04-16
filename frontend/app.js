@@ -4,10 +4,13 @@ const dropZone = document.getElementById('drop-zone');
 const fileInput = document.getElementById('file-input');
 const statusIndicator = document.getElementById('status-indicator');
 const statusText = document.getElementById('status-text');
+const progressBar = document.getElementById('progress-bar');
+const progressPct = document.getElementById('progress-pct');
+const etaText = document.getElementById('eta-text');
 const resultZone = document.getElementById('result-zone');
 const resultText = document.getElementById('result-text');
 const errorZone = document.getElementById('error-zone');
-const errorText = document.getElementById('error-text');
+const errorTextEl = document.getElementById('error-text');
 const copyBtn = document.getElementById('copy-btn');
 const downloadBtn = document.getElementById('download-btn');
 
@@ -63,9 +66,11 @@ async function handleFile(file) {
     }
     
     showStatus('Загрузка файла...');
-    
+
+    const postprocess = document.getElementById('postprocess-toggle').checked;
     const formData = new FormData();
     formData.append('file', file);
+    formData.append('postprocess', String(postprocess));
     
     try {
         const response = await fetch('/api/upload', {
@@ -105,7 +110,7 @@ async function pollStatus() {
                 hideStatus();
                 showError(data.error || 'Произошла ошибка');
             } else {
-                updateStatus(data.status);
+                updateStatus(data);
             }
         } catch (error) {
             clearInterval(pollInterval);
@@ -118,30 +123,66 @@ async function pollStatus() {
 // Загрузка результата
 async function loadResult() {
     hideStatus();
-    
-    const response = await fetch(`/api/result/${currentTaskId}`);
-    currentResult = await response.json();
-    
-    showResult(currentResult.processed_text);
+
+    try {
+        const response = await fetch(`/api/result/${currentTaskId}`);
+        if (!response.ok) {
+            const err = await response.json().catch(() => ({}));
+            throw new Error(err.detail || 'Ошибка получения результата');
+        }
+        currentResult = await response.json();
+        showResult(currentResult.processed_text);
+    } catch (error) {
+        showError(error.message);
+    }
 }
 
 // UI хелперы
 function showStatus(text) {
     statusIndicator.style.display = 'block';
     statusText.textContent = text;
+    setProgress(0);
+    etaText.textContent = '';
 }
 
-function updateStatus(status) {
-    const statusMessages = {
+function updateStatus(data) {
+    const fallback = {
         'pending': 'Файл в очереди...',
-        'transcribing': 'Транскрибация...',
-        'processing': 'Постобработка текста...'
+        'transcribing': 'Транскрибация речи...',
+        'processing': 'Постобработка текста...',
     };
-    statusText.textContent = statusMessages[status] || 'Обработка...';
+    statusText.textContent = data.stage_message || fallback[data.status] || 'Обработка...';
+    setProgress(data.progress || 0);
+
+    // Строки под прогресс-баром
+    const elapsed = data.elapsed_seconds || 0;
+    if (data.eta_seconds != null && data.eta_seconds > 0) {
+        etaText.innerHTML =
+            `Идёт ${formatEta(elapsed)}<br>Осталось ~${formatEta(data.eta_seconds)}`;
+    } else if (elapsed > 0) {
+        etaText.innerHTML = `Идёт ${formatEta(elapsed)}`;
+    } else {
+        etaText.innerHTML = '';
+    }
+}
+
+function setProgress(pct) {
+    const clamped = Math.min(100, Math.max(0, pct));
+    progressBar.style.width = `${clamped}%`;
+    progressPct.textContent = `${Math.round(clamped)}%`;
+}
+
+function formatEta(seconds) {
+    if (seconds < 60) return `${seconds} сек`;
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return s > 0 ? `${m} мин ${s} сек` : `${m} мин`;
 }
 
 function hideStatus() {
     statusIndicator.style.display = 'none';
+    setProgress(0);
+    etaText.textContent = '';
 }
 
 function showResult(text) {
@@ -156,7 +197,7 @@ function hideResult() {
 
 function showError(message) {
     errorZone.style.display = 'block';
-    errorText.textContent = message;
+    errorTextEl.textContent = message;
 }
 
 function hideError() {
