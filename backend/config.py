@@ -27,7 +27,7 @@ OLLAMA_API_URL = "http://localhost:11434/api/generate"
 #   "qwen2.5:1.5b"  — качество ★★★,  скорость ★★★★  (~3× быстрее)
 #   "llama3.2:1b"   — качество ★★,   скорость ★★★★★ (~5× быстрее)
 # Установка: ollama pull <название модели>
-OLLAMA_MODEL = "llama3.2:1b"
+OLLAMA_MODEL = "qwen3.5:0.8b"
 
 # Максимальный размер одного чанка для постобработки (символы).
 POSTPROCESS_CHUNK_CHARS = 3000
