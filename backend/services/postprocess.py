@@ -15,7 +15,8 @@ from typing import Callable, Optional
 
 import httpx
 
-from config import OLLAMA_API_URL, OLLAMA_MODEL, POSTPROCESS_CHUNK_CHARS, POSTPROCESS_CONCURRENCY
+from config import OLLAMA_API_URL, OLLAMA_MODEL, POSTPROCESS_CHUNK_CHARS, POSTPROCESS_CONCURRENCY, OLLAMA_TIMEOUT
+from exceptions import OllamaUnavailableError, OllamaTimeoutError, PostprocessError
 
 logger = logging.getLogger(__name__)
 
@@ -80,7 +81,7 @@ async def _process_chunk(chunk: str) -> str:
 
     collected: list[str] = []
     async with httpx.AsyncClient() as client:
-        async with client.stream("POST", OLLAMA_API_URL, json=payload, timeout=600.0) as response:
+        async with client.stream("POST", OLLAMA_API_URL, json=payload, timeout=float(OLLAMA_TIMEOUT)) as response:
             response.raise_for_status()
             async for line in response.aiter_lines():
                 if not line:
@@ -104,16 +105,17 @@ async def postprocess_text(
     POSTPROCESS_CONCURRENCY чанков обрабатываются одновременно.
     Прогресс и ETA обновляются по завершении каждого чанка.
 
-    Args:
-        raw_text:    Сырой текст транскрибации.
-        on_progress: Callback(pct: 0–100, eta_seconds | None).
+    Raises:
+        OllamaUnavailableError: Если Ollama недоступна.
+        OllamaTimeoutError:     Если Ollama не ответила вовремя.
+        PostprocessError:       Прочие ошибки постобработки.
     """
     chunks = _split_into_chunks(raw_text)
     total = len(chunks)
 
     if total > 1:
         logger.info(
-            f"Постобработка: {total} чанков, "
+            f"[postprocess] {total} чанков, "
             f"параллельность={POSTPROCESS_CONCURRENCY} "
             f"(~{len(raw_text) // total} симв/чанк)"
         )
@@ -129,19 +131,15 @@ async def postprocess_text(
     async def process_one(idx: int, chunk: str) -> None:
         async with sem:
             wall_start = time.monotonic()
-            logger.info(f"Постобработка чанка {idx + 1}/{total}...")
+            logger.info(f"[postprocess] Чанк {idx + 1}/{total}...")
 
-            try:
-                result = await _process_chunk(chunk)
-            except Exception:
-                raise
+            result = await _process_chunk(chunk)
 
             elapsed = time.monotonic() - wall_start
             chunk_durations.append(elapsed)
             completed[0] += 1
             results[idx] = result
 
-            # Обновляем прогресс и ETA после завершения чанка
             if on_progress:
                 done_pct = completed[0] / total * 100
                 avg = sum(chunk_durations) / len(chunk_durations)
@@ -151,17 +149,18 @@ async def postprocess_text(
 
     try:
         await asyncio.gather(*[process_one(i, c) for i, c in enumerate(chunks)])
-    except httpx.TimeoutException:
-        logger.error("Ollama timeout")
-        raise RuntimeError("Превышено время постобработки текста")
-    except httpx.ConnectError:
-        logger.error("Ollama недоступна")
-        raise RuntimeError("Сервис Ollama недоступен")
+    except httpx.TimeoutException as e:
+        logger.error("[postprocess] Ollama timeout")
+        raise OllamaTimeoutError("Превышено время постобработки текста") from e
+    except httpx.ConnectError as e:
+        logger.error("[postprocess] Ollama недоступна")
+        raise OllamaUnavailableError("Сервис Ollama недоступен") from e
     except Exception as e:
-        logger.error(f"Ошибка Ollama: {e}")
-        raise RuntimeError(f"Ошибка постобработки текста: {e}")
+        logger.error(f"[postprocess] Ошибка: {e}")
+        raise PostprocessError(f"Ошибка постобработки текста: {e}") from e
 
     if on_progress:
         on_progress(100.0, 0)
 
+    logger.info("[postprocess] Завершено успешно.")
     return "\n\n".join(r for r in results if r is not None)

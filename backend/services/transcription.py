@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Callable, Optional
 
 from config import WHISPER_MODEL_NAME, WHISPER_DEVICE
+from exceptions import TranscriptionError
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +38,7 @@ def _load_model():
 
         compute_type = "float16" if device == "cuda" else "int8"
         logger.info(
-            f"Загрузка faster-whisper '{WHISPER_MODEL_NAME}' "
+            f"[transcription] Загрузка faster-whisper '{WHISPER_MODEL_NAME}' "
             f"(device={device}, compute={compute_type})..."
         )
         _model = WhisperModel(
@@ -45,7 +46,7 @@ def _load_model():
             device=device,
             compute_type=compute_type,
         )
-        logger.info("Модель faster-whisper загружена.")
+        logger.info("[transcription] Модель faster-whisper загружена.")
     return _model
 
 
@@ -111,12 +112,11 @@ async def transcribe_audio(
     Запускает тяжёлую CPU-операцию в пуле потоков через asyncio.to_thread.
     Прогресс реальный: основан на позиции обработанного сегмента в аудио.
 
-    Args:
-        wav_path:    Путь к WAV-файлу.
-        on_progress: Callback(pct: 0–100, eta_seconds | None).
+    Raises:
+        TranscriptionError: Если файл не найден или транскрибация завершилась с ошибкой.
     """
     if not wav_path.exists():
-        raise RuntimeError(f"Аудиофайл не найден: {wav_path}")
+        raise TranscriptionError(f"Аудиофайл не найден: {wav_path}")
 
     # Разделяемое состояние между рабочим потоком (запись) и event loop (чтение)
     progress_state: dict = {"pct": 0.0, "eta": None, "done": False}
@@ -133,9 +133,11 @@ async def transcribe_audio(
 
     try:
         result = await asyncio.to_thread(_do_transcribe, str(wav_path), progress_state)
+    except TranscriptionError:
+        raise
     except Exception as e:
-        logger.error(f"Ошибка транскрибации: {e}")
-        raise RuntimeError(f"Ошибка транскрибации: {e}")
+        logger.error(f"[transcription] Ошибка: {e}")
+        raise TranscriptionError(f"Ошибка транскрибации: {e}") from e
     finally:
         stop_event.set()
         ticker.cancel()
@@ -147,4 +149,5 @@ async def transcribe_audio(
     if on_progress:
         on_progress(100.0, 0)
 
+    logger.info("[transcription] Завершено успешно.")
     return result

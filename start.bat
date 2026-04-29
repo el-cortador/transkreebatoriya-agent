@@ -41,11 +41,18 @@ if errorlevel 1 (
 ) else (
     echo       faster-whisper OK
 )
+
+python -c "import dotenv" >nul 2>&1
+if errorlevel 1 (
+    echo       python-dotenv not found. Installing...
+    pip install python-dotenv
+)
+
 echo       OK
 
 echo [4/4] Running FastAPI backend...
 REM --- Hugging Face token (you can skip adding a token, but it makes model download faster) ---
-REM Set your HF token below (To obtain a new token, visit huggingface.co → Settings → Access Tokens):
+REM Set your HF token below (To obtain a new token, visit huggingface.co -> Settings -> Access Tokens):
 REM set HF_TOKEN=hf_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 REM -------------------------------------------------------------------------
 REM --- Параллельная обработка чанков в Ollama ----------------------------
@@ -53,6 +60,6 @@ REM Разрешает Ollama обрабатывать несколько зап
 REM Увеличьте POSTPROCESS_CONCURRENCY в backend/config.py если поднимаете выше 2.
 set OLLAMA_NUM_PARALLEL=2
 REM -----------------------------------------------------------------------
-python -m uvicorn main:app --host localhost --port 8000 --reload
+python -m uvicorn main:app --host localhost --port 8001 --reload --no-access-log
 
 pause

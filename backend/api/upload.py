@@ -8,10 +8,11 @@ import logging
 import shutil
 from pathlib import Path
 
-from fastapi import APIRouter, Form, UploadFile, File, HTTPException
+from fastapi import APIRouter, Depends, Form, UploadFile, File, HTTPException
 
 from config import TEMP_DIR, ALLOWED_EXTENSIONS, MAX_FILE_SIZE
-from tasks.manager import task_manager
+from exceptions import FileValidationError
+from tasks.manager import TaskManager, get_task_manager
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -21,6 +22,7 @@ logger = logging.getLogger(__name__)
 async def upload_file(
     file: UploadFile = File(...),
     postprocess: str = Form("true"),
+    manager: TaskManager = Depends(get_task_manager),
 ):
     """
     Загрузка файла для транскрибации.
@@ -52,13 +54,12 @@ async def upload_file(
         # Ранняя валидация размера
         file_size = temp_path.stat().st_size
         if file_size == 0:
-            raise ValueError("Файл пустой")
+            raise FileValidationError("Файл пустой")
         if file_size > MAX_FILE_SIZE:
-            raise ValueError(f"Файл слишком большой. Максимум: {MAX_FILE_SIZE / (1024**3):.1f} ГБ")
+            raise FileValidationError(f"Файл слишком большой. Максимум: {MAX_FILE_SIZE / (1024**3):.1f} ГБ")
 
-        # Создаём задачу и запускаем фоновую обработку
-        task_id = task_manager.create_task(temp_path, file.filename, run_postprocess=run_postprocess)
-        asyncio.create_task(task_manager.process_task(task_id))
+        task_id = manager.create_task(temp_path, file.filename, run_postprocess=run_postprocess)
+        asyncio.create_task(manager.process_task(task_id))
 
         return {
             "task_id": task_id,
@@ -66,12 +67,12 @@ async def upload_file(
             "filename": file.filename,
         }
 
-    except ValueError as e:
+    except FileValidationError as e:
         if temp_path.exists():
             temp_path.unlink()
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        logger.error(f"Ошибка загрузки: {str(e)}")
+        logger.error(f"[upload] Ошибка загрузки: {e}")
         if temp_path.exists():
             temp_path.unlink()
-        raise HTTPException(status_code=500, detail=f"Ошибка загрузки: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Ошибка загрузки: {e}")
