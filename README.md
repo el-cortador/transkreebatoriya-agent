@@ -23,7 +23,7 @@ git clone <repo-url>
 cd transkreebatoriya-agent\backend
 
 python -m venv venv
-venv\Scripts\activate
+source source venv/Scripts/activate
 pip install -r requirements.txt
 ```
 
