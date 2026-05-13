@@ -5,12 +5,25 @@
 import asyncio
 import subprocess
 import logging
+import shutil
 from pathlib import Path
 
 from config import FFMPEG_PATH, ALLOWED_EXTENSIONS, MAX_FILE_SIZE
 from exceptions import FileValidationError, ConversionError
 
 logger = logging.getLogger(__name__)
+
+
+def _ffmpeg_not_found_message() -> str:
+    return (
+        f"ffmpeg не найден: {FFMPEG_PATH!r}. Установите ffmpeg и добавьте его в PATH "
+        "или задайте переменную FFMPEG_PATH с полным путем к ffmpeg.exe."
+    )
+
+
+def _ensure_ffmpeg_available() -> None:
+    if shutil.which(FFMPEG_PATH) is None:
+        raise ConversionError(_ffmpeg_not_found_message())
 
 
 def validate_file(file_path: Path, filename: str) -> None:
@@ -45,6 +58,7 @@ async def convert_to_wav(input_path: Path) -> Path:
         ConversionError: Если ffmpeg завершился с ошибкой или превышен таймаут.
     """
     output_path = input_path.with_suffix(".wav")
+    _ensure_ffmpeg_available()
 
     cmd = [
         FFMPEG_PATH,
@@ -66,6 +80,8 @@ async def convert_to_wav(input_path: Path) -> Path:
             )
         except subprocess.TimeoutExpired:
             raise ConversionError("Превышено время конвертации файла")
+        except FileNotFoundError as exc:
+            raise ConversionError(_ffmpeg_not_found_message()) from exc
 
         # ffmpeg может вернуть ненулевой код при наличии битых пакетов в исходнике,
         # но при этом всё равно записать корректный WAV. Считаем конвертацию

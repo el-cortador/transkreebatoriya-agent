@@ -2,12 +2,13 @@
 Тесты для services/file_handler.py
 """
 
+import asyncio
 import pytest
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 
 from exceptions import FileValidationError, ConversionError
-from services.file_handler import validate_file
+from services.file_handler import validate_file, convert_to_wav
 
 
 def test_validate_file_unsupported_extension(tmp_path):
@@ -36,3 +37,12 @@ def test_validate_file_ok(tmp_path):
     f = tmp_path / "audio.mp3"
     f.write_bytes(b"valid data")
     validate_file(f, "audio.mp3")  # не должно бросить исключение
+
+
+def test_convert_to_wav_raises_clear_error_when_ffmpeg_missing(tmp_path):
+    f = tmp_path / "audio.mp3"
+    f.write_bytes(b"valid data")
+
+    with patch("services.file_handler.shutil.which", return_value=None):
+        with pytest.raises(ConversionError, match="ffmpeg не найден"):
+            asyncio.run(convert_to_wav(f))

@@ -7,7 +7,20 @@ REM ============================================================
 
 cd /d "%~dp0"
 
-echo [1/4] Checking Ollama availability...
+echo [1/5] Checking ffmpeg availability...
+if not "%FFMPEG_PATH%"=="" (
+    "%FFMPEG_PATH%" -version >nul 2>&1
+) else (
+    ffmpeg -version >nul 2>&1
+)
+if errorlevel 1 (
+    echo ERROR: ffmpeg not found. Install ffmpeg and add it to PATH, or set FFMPEG_PATH to ffmpeg.exe.
+    pause
+    exit /b 1
+)
+echo       OK
+
+echo [2/5] Checking Ollama availability...
 curl -s http://localhost:11434/api/tags >nul 2>&1
 if errorlevel 1 (
     echo ERROR: Ollama not found. Run "ollama serve" in another terminal.
@@ -16,7 +29,7 @@ if errorlevel 1 (
 )
 echo       OK
 
-echo [2/4] Checking LLM availability...
+echo [3/5] Checking LLM availability...
 curl -s http://localhost:11434/api/tags | findstr "qwen3:4b" >nul 2>&1
 if errorlevel 1 (
     echo       qwen3:4b not found. Loading LLM...
@@ -24,7 +37,7 @@ if errorlevel 1 (
 )
 echo       OK
 
-echo [3/4] Checking Python dependencies...
+echo [4/5] Checking Python dependencies...
 cd backend
 call venv\Scripts\activate.bat
 
@@ -50,7 +63,7 @@ if errorlevel 1 (
 
 echo       OK
 
-echo [4/4] Running FastAPI backend...
+echo [5/5] Running FastAPI backend...
 REM --- Hugging Face token (you can skip adding a token, but it makes model download faster) ---
 REM Set your HF token below (To obtain a new token, visit huggingface.co -> Settings -> Access Tokens):
 REM set HF_TOKEN=hf_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
