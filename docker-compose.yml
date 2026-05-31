@@ -1,0 +1,58 @@
+services:
+  app:
+    build:
+      context: .
+    container_name: transkreebatoriya-app
+    environment:
+      APP_HOST: 0.0.0.0
+      APP_PORT: 8001
+      FFMPEG_PATH: ffmpeg
+      OLLAMA_API_URL: http://ollama:11434/api/generate
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen3:4b}
+      POSTPROCESS_CONCURRENCY: ${POSTPROCESS_CONCURRENCY:-2}
+      OLLAMA_TIMEOUT: ${OLLAMA_TIMEOUT:-1800}
+      WHISPER_MODEL_NAME: ${WHISPER_MODEL_NAME:-base}
+      WHISPER_DEVICE: ${WHISPER_DEVICE:-auto}
+      MAX_FILE_SIZE_GB: ${MAX_FILE_SIZE_GB:-6}
+    ports:
+      - "${APP_PORT:-8001}:8001"
+    volumes:
+      - transkreebatoriya-temp:/app/temp
+      - huggingface-cache:/root/.cache/huggingface
+    depends_on:
+      ollama-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: transkreebatoriya-ollama
+    environment:
+      OLLAMA_HOST: 0.0.0.0:11434
+      OLLAMA_NUM_PARALLEL: ${OLLAMA_NUM_PARALLEL:-2}
+    ports:
+      - "${OLLAMA_PORT:-11434}:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    restart: unless-stopped
+
+  ollama-init:
+    image: ollama/ollama:latest
+    container_name: transkreebatoriya-ollama-init
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    command: ["pull", "${OLLAMA_MODEL:-qwen3:4b}"]
+    depends_on:
+      ollama:
+        condition: service_healthy
+    restart: "no"
+
+volumes:
+  transkreebatoriya-temp:
+  huggingface-cache:
+  ollama-data:

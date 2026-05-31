@@ -1,0 +1,17 @@
+.git
+.venv
+venv
+env
+ENV
+backend/venv
+__pycache__
+*.pyc
+.pytest_cache
+.mypy_cache
+.ruff_cache
+temp/*
+!temp/.gitkeep
+.ollama
+.qwen
+.claude
+roadmap.md

@@ -19,6 +19,7 @@ if str(backend_dir) not in sys.path:
 from api.upload import router as upload_router
 from api.status import router as status_router
 from api.result import router as result_router
+from config import APP_HOST, APP_PORT
 
 _access_logger = logging.getLogger("transkreebatoriya.access")
 
@@ -73,4 +74,4 @@ async def root():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="localhost", port=8001, access_log=False)
+    uvicorn.run(app, host=APP_HOST, port=APP_PORT, access_log=False)

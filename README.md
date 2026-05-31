@@ -16,45 +16,42 @@
 
 ---
 
-## Установка
+## Установка и запуск
 
-```bat
+Docker:
+
+```powershell
 git clone <repo-url>
-cd transkreebatoriya-agent\backend
-
-python -m venv venv
-source source venv/Scripts/activate
-pip install -r requirements.txt
-```
-
-При первом запуске faster-whisper автоматически скачает модель `base` (~140 МБ).
-
----
-
-## Запуск
-
-### Быстрый старт (Windows)
-
-```bat
-start.bat
-```
-
-Скрипт проверяет доступность Ollama, наличие модели qwen3:4b, устанавливает зависимости при необходимости и запускает FastAPI сервер.
-
-### Ручной запуск
-
-```bat
-REM 1. В отдельном терминале — Ollama (если не запущена как служба)
-ollama serve
-
-REM 2. Backend
-cd backend
-venv\Scripts\activate
-set OLLAMA_NUM_PARALLEL=2
-python -m uvicorn main:app --host localhost --port 8001 --reload --no-access-log
+cd transkreebatoriya-agent
+docker compose up --build
 ```
 
 Открыть в браузере: **http://localhost:8001**
+
+Подробности: [DOCKER.md](DOCKER.md)
+
+При первом запуске Docker соберёт образ приложения, Ollama скачает модель `qwen3:4b`,
+а faster-whisper скачает модель `base` (~140 МБ) при первой транскрибации.
+
+---
+
+## Управление Docker
+
+```powershell
+docker compose up --build
+```
+
+Остановить:
+
+```powershell
+docker compose down
+```
+
+Удалить контейнеры и скачанные Docker volumes:
+
+```powershell
+docker compose down -v
+```
 
 ---
 
@@ -145,7 +142,9 @@ transkreebatoriya-agent/
 ├── tests/                   # pytest-тесты
 ├── .env.example             # шаблон конфигурации
 ├── pytest.ini
-└── start.bat
+├── Dockerfile
+├── docker-compose.yml
+└── DOCKER.md
 ```
 
 ---
@@ -181,11 +180,8 @@ transkreebatoriya-agent/
 
 ## Тестирование
 
-```bat
-cd backend
-venv\Scripts\activate
-cd ..
-pytest
+```powershell
+docker compose run --rm app pytest
 ```
 
 Тесты не требуют запущенного сервера, Ollama или ffmpeg — используют моки.
