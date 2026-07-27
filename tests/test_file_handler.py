@@ -7,8 +7,8 @@ import pytest
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 
-from exceptions import FileValidationError, ConversionError
-from services.file_handler import validate_file, convert_to_wav
+from backend.exceptions import FileValidationError, ConversionError
+from backend.services.file_handler import validate_file, convert_to_wav
 
 
 def test_validate_file_unsupported_extension(tmp_path):
@@ -28,7 +28,7 @@ def test_validate_file_empty(tmp_path):
 def test_validate_file_too_large(tmp_path):
     f = tmp_path / "audio.mp3"
     f.write_bytes(b"x")
-    with patch("services.file_handler.MAX_FILE_SIZE", 0):
+    with patch("backend.services.file_handler.MAX_FILE_SIZE", 0):
         with pytest.raises(FileValidationError, match="слишком большой"):
             validate_file(f, "audio.mp3")
 
@@ -43,6 +43,6 @@ def test_convert_to_wav_raises_clear_error_when_ffmpeg_missing(tmp_path):
     f = tmp_path / "audio.mp3"
     f.write_bytes(b"valid data")
 
-    with patch("services.file_handler.shutil.which", return_value=None):
+    with patch("backend.services.file_handler.shutil.which", return_value=None):
         with pytest.raises(ConversionError, match="ffmpeg не найден"):
             asyncio.run(convert_to_wav(f))

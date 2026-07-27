@@ -7,17 +7,18 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
 
-from exceptions import TaskNotFoundError, TaskNotReadyError
-from tasks.manager import TaskManager, get_task_manager
+from backend.exceptions import TaskNotFoundError
+from backend.models import TranscriptionResult
+from backend.tasks.manager import TaskManager, get_task_manager
 
 router = APIRouter()
 
 
-@router.get("/result/{task_id}")
+@router.get("/result/{task_id}", response_model=TranscriptionResult)
 async def get_result(
     task_id: str,
     manager: TaskManager = Depends(get_task_manager),
-):
+) -> TranscriptionResult:
     """Возвращает результат транскрибации."""
     try:
         task = manager.require_task(task_id)
@@ -30,11 +31,11 @@ async def get_result(
             detail=f"Задача ещё не завершена. Текущий статус: {task['status']}"
         )
 
-    return {
-        "task_id": task["task_id"],
-        "raw_text": task["raw_text"],
-        "processed_text": task["processed_text"],
-    }
+    return TranscriptionResult(
+        task_id=task["task_id"],
+        raw_text=task["raw_text"],
+        processed_text=task["processed_text"],
+    )
 
 
 @router.get("/download/{task_id}")

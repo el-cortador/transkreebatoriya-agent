@@ -19,6 +19,9 @@ class TaskStatus(BaseModel):
     task_id: str
     status: str  # pending, transcribing, processing, done, error
     progress: Optional[float] = None
+    eta_seconds: Optional[int] = None
+    elapsed_seconds: Optional[int] = None
+    stage_message: Optional[str] = None
     error: Optional[str] = None
 
 
@@ -28,3 +31,10 @@ class TranscriptionResult(BaseModel):
     raw_text: Optional[str] = None
     processed_text: Optional[str] = None
     created_at: Optional[datetime] = None
+
+
+class AppConfig(BaseModel):
+    """Публичная конфигурация сервера для клиентов."""
+    allowed_extensions: list[str]
+    max_file_size_gb: int
+    postprocess_available: bool = True

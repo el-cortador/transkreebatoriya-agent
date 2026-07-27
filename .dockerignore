@@ -3,6 +3,7 @@
 venv
 env
 ENV
+.env
 backend/venv
 __pycache__
 *.pyc
@@ -15,3 +16,5 @@ temp/*
 .qwen
 .claude
 roadmap.md
+.tmp
+.uv-cache

@@ -11,42 +11,46 @@
 
 import asyncio
 import logging
+import threading
 import time
 from pathlib import Path
 from typing import Callable, Optional
 
-from config import WHISPER_MODEL_NAME, WHISPER_DEVICE
-from exceptions import TranscriptionError
+from backend.config import WHISPER_MODEL_NAME, WHISPER_DEVICE, WHISPER_LANGUAGE
+from backend.exceptions import TranscriptionError
 
 logger = logging.getLogger(__name__)
 
 # Глобальная модель (загружается один раз при первом обращении)
 _model = None
+_model_lock = threading.Lock()
 
 
 def _load_model():
-    """Ленивая загрузка модели (вызывается в пуле потоков)."""
+    """Ленивая загрузка модели (вызывается в пуле потоков, потокобезопасно)."""
     global _model
     if _model is None:
-        from faster_whisper import WhisperModel
-        import torch
+        with _model_lock:
+            if _model is None:
+                import ctranslate2
+                from faster_whisper import WhisperModel
 
-        if WHISPER_DEVICE == "auto":
-            device = "cuda" if torch.cuda.is_available() else "cpu"
-        else:
-            device = WHISPER_DEVICE
+                if WHISPER_DEVICE == "auto":
+                    device = "cuda" if ctranslate2.get_cuda_device_count() > 0 else "cpu"
+                else:
+                    device = WHISPER_DEVICE
 
-        compute_type = "float16" if device == "cuda" else "int8"
-        logger.info(
-            f"[transcription] Загрузка faster-whisper '{WHISPER_MODEL_NAME}' "
-            f"(device={device}, compute={compute_type})..."
-        )
-        _model = WhisperModel(
-            WHISPER_MODEL_NAME,
-            device=device,
-            compute_type=compute_type,
-        )
-        logger.info("[transcription] Модель faster-whisper загружена.")
+                compute_type = "float16" if device == "cuda" else "int8"
+                logger.info(
+                    f"[transcription] Загрузка faster-whisper '{WHISPER_MODEL_NAME}' "
+                    f"(device={device}, compute={compute_type})..."
+                )
+                _model = WhisperModel(
+                    WHISPER_MODEL_NAME,
+                    device=device,
+                    compute_type=compute_type,
+                )
+                logger.info("[transcription] Модель faster-whisper загружена.")
     return _model
 
 
@@ -71,9 +75,12 @@ def _do_transcribe(
     """
     model = _load_model()
 
+    # "auto" → автоопределение языка whisper, иначе — язык из конфигурации
+    language = None if WHISPER_LANGUAGE.lower() == "auto" else WHISPER_LANGUAGE
+
     segments, info = model.transcribe(
         wav_path_str,
-        language="ru",
+        language=language,
         beam_size=5,
         vad_filter=True,           # пропускать тишину
         vad_parameters={

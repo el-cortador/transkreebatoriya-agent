@@ -8,8 +8,8 @@ import logging
 import shutil
 from pathlib import Path
 
-from config import FFMPEG_PATH, ALLOWED_EXTENSIONS, MAX_FILE_SIZE
-from exceptions import FileValidationError, ConversionError
+from backend.config import FFMPEG_PATH, ALLOWED_EXTENSIONS, MAX_FILE_SIZE
+from backend.exceptions import FileValidationError, ConversionError
 
 logger = logging.getLogger(__name__)
 

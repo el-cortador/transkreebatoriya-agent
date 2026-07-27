@@ -1,0 +1,33 @@
+# Манифест агента Transkreebatoriya.
+# Схема и инварианты соответствуют agentic-repository/AGENT_SPEC.md:
+#   - manifest.id совпадает с именем директории репозитория;
+#   - все пути из манифеста указывают на реальные файлы;
+#   - секреты объявляются только по именам переменных, без значений.
+# Инварианты проверяются contract-тестом tests/test_manifest.py.
+
+id: transkreebatoriya-agent
+name: Transkreebatoriya
+description: >
+  Локальный агент транскрибации аудио и видео файлов:
+  ffmpeg → faster-whisper → LLM-постобработка (Ollama).
+  Runtime-независимое ядро (промпты, контракты, каноническое поведение)
+  находится в core/, веб-сервис на FastAPI — runtime local-web.
+owner: elcortador
+
+runtimes:
+  local-web:
+    supported: true
+    docs: runtimes/local-web/README.md
+    install:
+      windows: install.ps1
+      linux: install.sh
+
+integrations:
+  # Без этих компонентов пайплайн не работает.
+  required: [ffmpeg, faster-whisper]
+  # Постобработка и GPU-ускорение — опциональны.
+  optional: [ollama, cuda]
+
+secrets:
+  required: []
+  optional: [HF_TOKEN]

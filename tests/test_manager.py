@@ -6,8 +6,8 @@ import pytest
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
-from exceptions import TaskNotFoundError
-from tasks.manager import TaskManager
+from backend.exceptions import TaskNotFoundError
+from backend.tasks.manager import TaskManager
 
 
 def make_manager() -> TaskManager:

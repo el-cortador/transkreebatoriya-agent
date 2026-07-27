@@ -9,11 +9,11 @@ from datetime import datetime
 from typing import Dict, Optional
 from pathlib import Path
 
-from config import TEMP_DIR
-from exceptions import TaskNotFoundError, FileValidationError, ConversionError, TranscriptionError, PostprocessError
-from services.file_handler import validate_file, convert_to_wav
-from services.transcription import transcribe_audio
-from services.postprocess import postprocess_text
+from backend.config import TASK_TTL_SECONDS
+from backend.exceptions import TaskNotFoundError, FileValidationError, ConversionError, TranscriptionError, PostprocessError
+from backend.services.file_handler import validate_file, convert_to_wav
+from backend.services.transcription import transcribe_audio
+from backend.services.postprocess import postprocess_text
 
 logger = logging.getLogger(__name__)
 
@@ -21,8 +21,9 @@ logger = logging.getLogger(__name__)
 class TaskManager:
     """Управление задачами транскрибации."""
 
-    def __init__(self):
+    def __init__(self, ttl_seconds: float = TASK_TTL_SECONDS):
         self.tasks: Dict[str, dict] = {}
+        self.ttl_seconds = ttl_seconds
 
     def create_task(self, file_path: Path, filename: str, run_postprocess: bool = True) -> str:
         """
@@ -136,7 +137,30 @@ class TaskManager:
             task["status"] = "error"
             task["error"] = str(e)
         finally:
+            task["finished_at"] = datetime.now()
             await self._cleanup_temp_files(task_id)
+
+    def cleanup_expired(self) -> int:
+        """
+        Удаляет завершённые (done/error) задачи старше TTL.
+
+        Гарантия времени жизни результатов: core/contracts/pipeline_contract.md, §4.
+
+        Returns:
+            Количество удалённых задач.
+        """
+        now = datetime.now()
+        expired = [
+            task_id
+            for task_id, task in self.tasks.items()
+            if task["status"] in ("done", "error")
+            and (now - task.get("finished_at", task["created_at"])).total_seconds() > self.ttl_seconds
+        ]
+        for task_id in expired:
+            del self.tasks[task_id]
+        if expired:
+            logger.info(f"[manager] TTL-cleanup: удалено {len(expired)} завершённых задач")
+        return len(expired)
 
     async def _cleanup_temp_files(self, task_id: str):
         """Удаляет временные файлы задачи."""

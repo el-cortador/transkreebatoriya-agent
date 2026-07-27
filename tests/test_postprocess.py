@@ -5,8 +5,8 @@
 import pytest
 from unittest.mock import AsyncMock, patch
 
-from exceptions import OllamaUnavailableError, OllamaTimeoutError
-from services.postprocess import _split_into_chunks, _strip_thinking
+from backend.exceptions import OllamaUnavailableError, OllamaTimeoutError
+from backend.services.postprocess import _split_into_chunks, _strip_thinking
 
 
 def test_strip_thinking_removes_block():
@@ -40,7 +40,7 @@ def test_split_into_chunks_respects_sentences():
 @pytest.mark.asyncio
 async def test_postprocess_text_ollama_unavailable():
     import httpx
-    with patch("services.postprocess._process_chunk", side_effect=httpx.ConnectError("refused")):
-        from services.postprocess import postprocess_text
+    with patch("backend.services.postprocess._process_chunk", side_effect=httpx.ConnectError("refused")):
+        from backend.services.postprocess import postprocess_text
         with pytest.raises(OllamaUnavailableError):
             await postprocess_text("some text")

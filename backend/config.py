@@ -1,66 +1,67 @@
 """
-Конфигурация приложения.
+Конфигурация приложения — слой обратной совместимости.
 
-Значения читаются из .env (если он есть), затем из переменных окружения.
-Все параметры имеют разумные дефолты, поэтому .env необязателен.
+Реальная реализация с валидацией: backend/settings.py (pydantic-settings).
+Этот модуль ре-экспортирует значения как модульные константы, чтобы
+существующие импорты `from backend.config import X` продолжали работать.
+
+Новый код должен использовать `get_settings()` из backend/settings.py.
 """
 
-import os
-from pathlib import Path
+from backend.settings import BASE_DIR, get_settings
 
-from dotenv import load_dotenv
-
-load_dotenv(Path(__file__).parent.parent / ".env")
+_settings = get_settings()
 
 # ── Директории ────────────────────────────────────────────────────────────────
 
-BASE_DIR = Path(__file__).resolve().parent.parent
 TEMP_DIR = BASE_DIR / "temp"
 TEMP_DIR.mkdir(exist_ok=True)
 
 # ── Whisper ───────────────────────────────────────────────────────────────────
 
-# Варианты модели: tiny | base | small | medium | large-v3
-# Чем больше модель — тем точнее, но медленнее.
-WHISPER_MODEL_NAME: str = os.getenv("WHISPER_MODEL_NAME", "base")
-
-# "auto" → CUDA если доступно, иначе CPU.
-# Принудительно: "cpu" или "cuda".
-WHISPER_DEVICE: str = os.getenv("WHISPER_DEVICE", "auto")
+WHISPER_MODEL_NAME: str = _settings.whisper_model_name
+WHISPER_DEVICE: str = _settings.whisper_device
+WHISPER_LANGUAGE: str = _settings.whisper_language
 
 # ── ffmpeg ────────────────────────────────────────────────────────────────────
 
-FFMPEG_PATH: str = os.getenv("FFMPEG_PATH", "ffmpeg")
+FFMPEG_PATH: str = _settings.ffmpeg_path
 
 # ── Ollama ────────────────────────────────────────────────────────────────────
 
-OLLAMA_API_URL: str = os.getenv("OLLAMA_API_URL", "http://localhost:11434/api/generate")
+OLLAMA_API_URL: str = _settings.ollama_api_url
+OLLAMA_MODEL: str = _settings.ollama_model
+OLLAMA_KEEP_ALIVE: str = _settings.ollama_keep_alive
+OLLAMA_NUM_CTX: int = _settings.ollama_num_ctx
+OLLAMA_NUM_PREDICT: int = _settings.ollama_num_predict
+OLLAMA_TEMPERATURE: float = _settings.ollama_temperature
+OLLAMA_TOP_P: float = _settings.ollama_top_p
+OLLAMA_TOP_K: int = _settings.ollama_top_k
+OLLAMA_MIN_P: float = _settings.ollama_min_p
+OLLAMA_REPEAT_LAST_N: int = _settings.ollama_repeat_last_n
+OLLAMA_REPEAT_PENALTY: float = _settings.ollama_repeat_penalty
+OLLAMA_TIMEOUT: int = _settings.ollama_timeout
 
-# Варианты модели (по убыванию качества / возрастанию скорости):
-#   qwen3:4b      — качество ★★★★, скорость ★★   (по умолчанию)
-#   qwen2.5:1.5b  — качество ★★★,  скорость ★★★★
-#   llama3.2:1b   — качество ★★,   скорость ★★★★★
-OLLAMA_MODEL: str = os.getenv("OLLAMA_MODEL", "qwen3:4b")
+# ── Постобработка ─────────────────────────────────────────────────────────────
 
-# Максимум символов в одном чанке постобработки
-POSTPROCESS_CHUNK_CHARS: int = int(os.getenv("POSTPROCESS_CHUNK_CHARS", "3000"))
-
-# Сколько чанков обрабатывать параллельно (требует OLLAMA_NUM_PARALLEL в окружении)
-POSTPROCESS_CONCURRENCY: int = int(os.getenv("POSTPROCESS_CONCURRENCY", "2"))
-
-# Таймаут одного запроса к Ollama в секундах (на один чанк)
-OLLAMA_TIMEOUT: int = int(os.getenv("OLLAMA_TIMEOUT", "1800"))
+POSTPROCESS_CHUNK_CHARS: int = _settings.postprocess_chunk_chars
+POSTPROCESS_CONCURRENCY: int = _settings.postprocess_concurrency
 
 # ── Лимиты файлов ─────────────────────────────────────────────────────────────
 
-MAX_FILE_SIZE: int = int(os.getenv("MAX_FILE_SIZE_GB", "6")) * 1024 * 1024 * 1024
+MAX_FILE_SIZE_GB: int = _settings.max_file_size_gb
+MAX_FILE_SIZE: int = _settings.max_file_size_bytes
 
 ALLOWED_EXTENSIONS: frozenset[str] = frozenset({
     ".mp3", ".mp4", ".wav", ".m4a", ".mkv",
     ".flac", ".ogg", ".webm", ".avi", ".mov",
 })
 
+# ── Задачи ────────────────────────────────────────────────────────────────────
+
+TASK_TTL_SECONDS: float = _settings.task_ttl_seconds
+
 # ── Сервер ────────────────────────────────────────────────────────────────────
 
-APP_HOST: str = os.getenv("APP_HOST", "localhost")
-APP_PORT: int = int(os.getenv("APP_PORT", "8001"))
+APP_HOST: str = _settings.app_host
+APP_PORT: int = _settings.app_port

@@ -1,13 +1,17 @@
 """
-Сервис постобработки текста через Ollama.
+Сервис постобработки текста через LLM.
 
 Длинные транскрипции разбиваются на чанки и обрабатываются параллельно
-(POSTPROCESS_CONCURRENCY штук одновременно). Ollama должна быть запущена
-с OLLAMA_NUM_PARALLEL=N — задаётся в start.bat.
+(POSTPROCESS_CONCURRENCY штук одновременно). При повышении параллельности
+Ollama должна быть запущена с OLLAMA_NUM_PARALLEL=N (см. install.ps1 /
+docker-compose.yml).
+
+Системный промпт загружается из core/prompts/postprocess.system.md.
+Провайдер LLM инкапсулирован за LLMClient (backend/llm/).
+Нормативное поведение: core/contracts/postprocess_contract.md.
 """
 
 import asyncio
-import json
 import re
 import logging
 import time
@@ -15,23 +19,12 @@ from typing import Callable, Optional
 
 import httpx
 
-from config import OLLAMA_API_URL, OLLAMA_MODEL, POSTPROCESS_CHUNK_CHARS, POSTPROCESS_CONCURRENCY, OLLAMA_TIMEOUT
-from exceptions import OllamaUnavailableError, OllamaTimeoutError, PostprocessError
+from backend.config import POSTPROCESS_CHUNK_CHARS, POSTPROCESS_CONCURRENCY
+from backend.exceptions import OllamaUnavailableError, OllamaTimeoutError, PostprocessError
+from backend.llm import LLMClient, get_llm_client
+from backend.prompts import get_postprocess_system_prompt
 
 logger = logging.getLogger(__name__)
-
-SYSTEM_PROMPT = """Ты — профессиональный редактор транскрибаций. Твоя задача — улучшить качество текста, полученного через распознавание речи.
-
-Исходные данные: сырой текст, полученный через whisper (может содержать ошибки распознавания, отсутствовать пунктуацию, быть разбитым на неправильные абзацы).
-
-Что нужно сделать:
-1. Исправить ошибки распознавания (неправильные слова, искажённые фамилии, термины).
-2. Расставить знаки препинания там, где они отсутствуют.
-3. Разбить текст на логические абзацы.
-4. Если в тексте есть диалог или несколько спикеров, разметить их как "Спикер 1:", "Спикер 2:" и т.д. (на основе контекста, не обязательно точно).
-5. Сохранить исходный смысл, не добавлять и не убирать информацию.
-
-Верни только обработанный текст, без дополнительных комментариев и пояснений."""
 
 # Начальная оценка секунд на один чанк до получения реальных данных
 _INITIAL_CHUNK_SEC = 60.0
@@ -69,47 +62,36 @@ def _split_into_chunks(text: str, max_chars: int = POSTPROCESS_CHUNK_CHARS) -> l
     return chunks
 
 
-async def _process_chunk(chunk: str) -> str:
-    """Обрабатывает один чанк через Ollama со стримингом."""
-    payload = {
-        "model": OLLAMA_MODEL,
-        "prompt": chunk,
-        "system": SYSTEM_PROMPT,
-        "stream": True,
-        "think": False,  # отключаем chain-of-thought у qwen3
-    }
-
-    collected: list[str] = []
-    async with httpx.AsyncClient() as client:
-        async with client.stream("POST", OLLAMA_API_URL, json=payload, timeout=float(OLLAMA_TIMEOUT)) as response:
-            response.raise_for_status()
-            async for line in response.aiter_lines():
-                if not line:
-                    continue
-                try:
-                    data = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-                collected.append(data.get("response", ""))
-
-    return _strip_thinking("".join(collected))
+async def _process_chunk(chunk: str, system: str, llm: LLMClient) -> str:
+    """Обрабатывает один чанк через LLM и нормализует ответ (think-strip)."""
+    raw = await llm.generate(chunk, system=system)
+    return _strip_thinking(raw)
 
 
 async def postprocess_text(
     raw_text: str,
     on_progress: Optional[Callable[[float, Optional[int]], None]] = None,
+    llm: Optional[LLMClient] = None,
 ) -> str:
     """
-    Постобрабатывает транскрипцию через Ollama с параллельной обработкой чанков.
+    Постобрабатывает транскрипцию через LLM с параллельной обработкой чанков.
 
     POSTPROCESS_CONCURRENCY чанков обрабатываются одновременно.
     Прогресс и ETA обновляются по завершении каждого чанка.
 
+    Args:
+        raw_text:    Сырой текст транскрибации.
+        on_progress: Callback (pct 0–100, eta_seconds | None).
+        llm:         LLM-клиент; по умолчанию — разделяемый клиент из get_llm_client().
+
     Raises:
-        OllamaUnavailableError: Если Ollama недоступна.
-        OllamaTimeoutError:     Если Ollama не ответила вовремя.
+        OllamaUnavailableError: Если LLM-сервис недоступен.
+        OllamaTimeoutError:     Если LLM не ответила вовремя.
         PostprocessError:       Прочие ошибки постобработки.
     """
+    llm = llm or get_llm_client()
+    system = get_postprocess_system_prompt()
+
     chunks = _split_into_chunks(raw_text)
     total = len(chunks)
 
@@ -133,7 +115,7 @@ async def postprocess_text(
             wall_start = time.monotonic()
             logger.info(f"[postprocess] Чанк {idx + 1}/{total}...")
 
-            result = await _process_chunk(chunk)
+            result = await _process_chunk(chunk, system, llm)
 
             elapsed = time.monotonic() - wall_start
             chunk_durations.append(elapsed)
@@ -150,10 +132,10 @@ async def postprocess_text(
     try:
         await asyncio.gather(*[process_one(i, c) for i, c in enumerate(chunks)])
     except httpx.TimeoutException as e:
-        logger.error("[postprocess] Ollama timeout")
+        logger.error("[postprocess] LLM timeout")
         raise OllamaTimeoutError("Превышено время постобработки текста") from e
     except httpx.ConnectError as e:
-        logger.error("[postprocess] Ollama недоступна")
+        logger.error("[postprocess] LLM-сервис недоступен")
         raise OllamaUnavailableError("Сервис Ollama недоступен") from e
     except Exception as e:
         logger.error(f"[postprocess] Ошибка: {e}")

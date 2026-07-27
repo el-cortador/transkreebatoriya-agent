@@ -17,6 +17,26 @@ const downloadBtn = document.getElementById('download-btn');
 let currentTaskId = null;
 let currentResult = null;
 
+// Конфигурация сервера (GET /api/config) — единый источник правды о лимитах.
+// Фолбэк-дубли нужны только на случай, если сервер старый или недоступен.
+const FALLBACK_CONFIG = {
+    allowed_extensions: ['.mp3', '.mp4', '.wav', '.m4a', '.mkv', '.flac', '.ogg', '.webm', '.avi', '.mov'],
+    max_file_size_gb: 6,
+};
+let serverConfig = FALLBACK_CONFIG;
+
+async function loadConfig() {
+    try {
+        const response = await fetch('/api/config');
+        if (response.ok) {
+            serverConfig = await response.json();
+        }
+    } catch {
+        // остаёмся на фолбэк-конфиге
+    }
+}
+loadConfig();
+
 // Drag-and-drop обработчики
 dropZone.addEventListener('click', () => fileInput.click());
 
@@ -49,19 +69,19 @@ async function handleFile(file) {
     hideError();
     hideResult();
     
-    // Валидация формата файла
-    const allowedExtensions = ['.mp3', '.mp4', '.wav', '.m4a', '.mkv', '.flac', '.ogg', '.webm', '.avi', '.mov'];
+    // Валидация формата файла (лимиты — из /api/config)
+    const allowedExtensions = serverConfig.allowed_extensions;
     const fileExtension = '.' + file.name.split('.').pop().toLowerCase();
-    
+
     if (!allowedExtensions.includes(fileExtension)) {
         showError(`Неподдерживаемый формат файла. Поддерживаемые: ${allowedExtensions.join(', ')}`);
         return;
     }
-    
-    // Валидация размера файла (6 ГБ)
-    const maxSize = 6 * 1024 * 1024 * 1024; // 6 ГБ в байтах
+
+    // Валидация размера файла
+    const maxSize = serverConfig.max_file_size_gb * 1024 * 1024 * 1024;
     if (file.size > maxSize) {
-        showError('Файл слишком большой. Максимальный размер: 6 ГБ');
+        showError(`Файл слишком большой. Максимальный размер: ${serverConfig.max_file_size_gb} ГБ`);
         return;
     }
     

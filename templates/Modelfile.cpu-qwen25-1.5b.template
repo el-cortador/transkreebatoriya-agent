@@ -1,0 +1,15 @@
+# Modelfile для alias-модели transkreebatoriya-qwen25-cpu.
+# Рендерится install.ps1 / install.sh из этого шаблона: плейсхолдеры {{VAR}}
+# заменяются значениями из .env (или дефолтами). Не редактируйте отрендеренный
+# Modelfile.cpu-qwen25-1.5b вручную — правьте шаблон или .env.
+
+FROM qwen2.5:1.5b
+
+PARAMETER num_ctx {{OLLAMA_NUM_CTX}}
+PARAMETER num_predict {{OLLAMA_NUM_PREDICT}}
+PARAMETER temperature {{OLLAMA_TEMPERATURE}}
+PARAMETER top_p {{OLLAMA_TOP_P}}
+PARAMETER top_k {{OLLAMA_TOP_K}}
+PARAMETER min_p {{OLLAMA_MIN_P}}
+PARAMETER repeat_last_n {{OLLAMA_REPEAT_LAST_N}}
+PARAMETER repeat_penalty {{OLLAMA_REPEAT_PENALTY}}

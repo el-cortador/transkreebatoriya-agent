@@ -2,7 +2,13 @@
 temp/*
 !temp/.gitkeep
 
+# Локальные конфиги и сгенерированные артефакты (источники — в templates/)
+.env
+Modelfile.cpu-qwen25-1.5b
+
 # Python
+.tmp/
+.pytest_cache/
 __pycache__/
 *.py[cod]
 *$py.class

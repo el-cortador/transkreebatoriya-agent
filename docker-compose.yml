@@ -8,12 +8,23 @@ services:
       APP_PORT: 8001
       FFMPEG_PATH: ffmpeg
       OLLAMA_API_URL: http://ollama:11434/api/generate
-      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen3:4b}
-      POSTPROCESS_CONCURRENCY: ${POSTPROCESS_CONCURRENCY:-2}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:1.5b}
+      POSTPROCESS_CONCURRENCY: ${POSTPROCESS_CONCURRENCY:-1}
       OLLAMA_TIMEOUT: ${OLLAMA_TIMEOUT:-1800}
+      OLLAMA_KEEP_ALIVE: ${OLLAMA_KEEP_ALIVE:-15m}
+      OLLAMA_NUM_CTX: ${OLLAMA_NUM_CTX:-2048}
+      OLLAMA_NUM_PREDICT: ${OLLAMA_NUM_PREDICT:-768}
+      OLLAMA_TEMPERATURE: ${OLLAMA_TEMPERATURE:-0.15}
+      OLLAMA_TOP_P: ${OLLAMA_TOP_P:-0.9}
+      OLLAMA_TOP_K: ${OLLAMA_TOP_K:-30}
+      OLLAMA_MIN_P: ${OLLAMA_MIN_P:-0.05}
+      OLLAMA_REPEAT_LAST_N: ${OLLAMA_REPEAT_LAST_N:-128}
+      OLLAMA_REPEAT_PENALTY: ${OLLAMA_REPEAT_PENALTY:-1.08}
       WHISPER_MODEL_NAME: ${WHISPER_MODEL_NAME:-base}
       WHISPER_DEVICE: ${WHISPER_DEVICE:-auto}
+      WHISPER_LANGUAGE: ${WHISPER_LANGUAGE:-ru}
       MAX_FILE_SIZE_GB: ${MAX_FILE_SIZE_GB:-6}
+      TASK_TTL_HOURS: ${TASK_TTL_HOURS:-24}
     ports:
       - "${APP_PORT:-8001}:8001"
     volumes:
@@ -29,7 +40,8 @@ services:
     container_name: transkreebatoriya-ollama
     environment:
       OLLAMA_HOST: 0.0.0.0:11434
-      OLLAMA_NUM_PARALLEL: ${OLLAMA_NUM_PARALLEL:-2}
+      OLLAMA_NUM_PARALLEL: ${OLLAMA_NUM_PARALLEL:-1}
+      OLLAMA_MAX_LOADED_MODELS: ${OLLAMA_MAX_LOADED_MODELS:-1}
     ports:
       - "${OLLAMA_PORT:-11434}:11434"
     volumes:
@@ -46,7 +58,7 @@ services:
     container_name: transkreebatoriya-ollama-init
     environment:
       OLLAMA_HOST: http://ollama:11434
-    command: ["pull", "${OLLAMA_MODEL:-qwen3:4b}"]
+    command: ["pull", "${OLLAMA_MODEL:-qwen2.5:1.5b}"]
     depends_on:
       ollama:
         condition: service_healthy
