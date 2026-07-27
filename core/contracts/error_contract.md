@@ -11,11 +11,14 @@ TranscribatoriyaError                     # базовый класс
 ├── ConversionError                       # ffmpeg: отсутствует, таймаут, код != 0
 ├── TranscriptionError                    # faster-whisper: файл не найден, сбой модели
 ├── PostprocessError                      # базовая ошибка постобработки
-│   ├── OllamaUnavailableError            # LLM-сервис недоступен (connect)
-│   └── OllamaTimeoutError                # LLM не ответила вовремя
+│   ├── OllamaUnavailableError            # LLM-провайдер недоступен (connect)
+│   └── OllamaTimeoutError                # LLM-провайдер не ответил вовремя
 ├── TaskNotFoundError                     # task_id не существует
 └── TaskNotReadyError                     # задача ещё не завершена
 ```
+
+Имена `Ollama*` — исторические: исключения покрывают любой LLM-провайдер
+(Ollama, OpenRouter). Переименование не делается ради обратной совместимости.
 
 ## 2. Отображение на поведение системы
 

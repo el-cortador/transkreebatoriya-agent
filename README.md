@@ -1,7 +1,7 @@
 # Transkreebatoriya
 
 ИИ-агент для транскрибации аудио и видео файлов.  
-Стек: **FastAPI** → **ffmpeg** → **faster-whisper** (`base`) → **Ollama** (`qwen2.5:1.5b`) → браузерный UI.
+Стек: **FastAPI** → **ffmpeg** → **faster-whisper** (`base`, всегда локально) → **LLM-постобработка** (локальная **Ollama** или облачный **OpenRouter** на выбор) → браузерный UI.
 
 Архитектура агента следует спецификации [agentic-repository](../agentic-repository/AGENT_SPEC.md):
 runtime-независимое ядро (промпты, контракты, каноническое поведение) — в [`core/`](core/),
@@ -15,7 +15,8 @@ runtime-независимое ядро (промпты, контракты, к�
 |-----------|--------|-----------|
 | uv | любая | `winget install astral-sh.uv` / [docs.astral.sh/uv](https://docs.astral.sh/uv/) |
 | ffmpeg | любая | [ffmpeg.org](https://ffmpeg.org/download.html) → добавить в `PATH` |
-| Ollama | любая (опционально, для постобработки) | [ollama.com](https://ollama.com) |
+| Ollama | любая (опционально — локальный провайдер постобработки) | [ollama.com](https://ollama.com) |
+| OpenRouter | API-ключ (опционально — облачный провайдер постобработки) | [openrouter.ai/keys](https://openrouter.ai/keys) |
 
 Python отдельно ставить не нужно — uv сам скачает нужную версию (3.12) из `.python-version`.
 
@@ -92,21 +93,26 @@ docker compose down -v
 ## Конфигурация
 
 Все настройки читаются из переменных окружения (или файла `.env` в корне проекта)
-и валидируются при старте (pydantic-settings). Шаблон — `templates/env.example`,
-install-скрипт копирует его в `.env` (существующий `.env` не перезаписывается).
+и валидируются при старте (pydantic-settings). Шаблон с подробными комментариями —
+`templates/env.example`; install-скрипт генерирует из него минимальный `.env`
+(только переменные, без комментариев; существующий `.env` не перезаписывается).
 
 Ключевые параметры:
 
 | Переменная | Дефолт | Описание |
 |------------|--------|----------|
+| `LLM_PROVIDER` | `ollama` | Провайдер постобработки: `ollama` (локально, приватно) / `openrouter` (облако, быстро, текст уходит наружу) |
 | `WHISPER_MODEL_NAME` | `base` | Модель faster-whisper: `tiny` / `base` / `small` / `medium` / `large-v3` |
 | `WHISPER_DEVICE` | `auto` | Устройство: `auto` (CUDA если есть) / `cpu` / `cuda` |
 | `WHISPER_LANGUAGE` | `ru` | Язык распознавания (ISO-639-1); `auto` — автоопределение |
-| `OLLAMA_MODEL` | `qwen2.5:1.5b` | Рекомендованная CPU-модель для постобработки |
+| `OLLAMA_MODEL` | `qwen2.5:1.5b` | Рекомендованная CPU-модель для постобработки (провайдер `ollama`) |
 | `OLLAMA_KEEP_ALIVE` | `15m` | Держать модель прогретой между запросами |
 | `OLLAMA_NUM_CTX` | `2048` | Контекст; больше на этом железе даёт лишний KV cache pressure |
 | `OLLAMA_NUM_PREDICT` | `768` | Верхний предел вывода на один чанк |
-| `POSTPROCESS_CONCURRENCY` | `1` | Параллельность чанков; для вашего CPU лучше не раздувать |
+| `OPENROUTER_API_KEY` | — | Ключ OpenRouter (openrouter.ai/keys), нужен при `LLM_PROVIDER=openrouter` |
+| `OPENROUTER_MODEL` | `deepseek/deepseek-v4-pro` | Модель постобработки (провайдер `openrouter`) |
+| `OPENROUTER_TIMEOUT` | `300` | Таймаут одного запроса к OpenRouter (на чанк), сек |
+| `POSTPROCESS_CONCURRENCY` | `1` | Параллельность чанков; для OpenRouter можно поднять до 4–8 |
 | `POSTPROCESS_CHUNK_CHARS` | `1800` | Макс. символов в одном чанке, чтобы не разгонять prompt eval |
 | `APP_PORT` | `8001` | Порт FastAPI сервера |
 | `MAX_FILE_SIZE_GB` | `6` | Лимит размера файла в ГБ |
@@ -150,7 +156,7 @@ install-скрипт копирует его в `.env` (существующий
 [faster-whisper base, VAD-фильтр, INT8]
 [Сырой текст + прогресс в реальном времени]
         ↓ (если постобработка включена)
-[LLMClient → Ollama / llama.cpp backend, think=False, CPU-tuned options]
+[LLMClient → Ollama (локально) или OpenRouter (deepseek/deepseek-v4-pro)]
 [Исправленный текст с пунктуацией и абзацами]
         ↓ GET /api/result / GET /api/download
 [Браузер: прогресс → результат → копировать / скачать .md]
@@ -195,7 +201,8 @@ transkreebatoriya-agent/
 │   │   └── result.py         # GET  /api/result/{id}, /api/download/{id}
 │   ├── llm/
 │   │   ├── base.py           # LLMClient — провайдеро-независимый интерфейс
-│   │   └── ollama.py         # OllamaClient (разделяемый HTTP-клиент)
+│   │   ├── ollama.py         # OllamaClient (локальный провайдер)
+│   │   └── openrouter.py     # OpenRouterClient (облачный провайдер)
 │   ├── services/
 │   │   ├── file_handler.py   # валидация, ffmpeg-конвертация
 │   │   ├── transcription.py  # faster-whisper с прогрессом
@@ -284,10 +291,13 @@ uv run pytest -m integration
 
 | Способ | Эффект |
 |--------|--------|
+| `LLM_PROVIDER=openrouter` | постобработка в 10–30× быстрее, чем на локальном CPU; текст уходит во внешний API |
 | Модель `tiny` вместо `base` | ~2× быстрее, чуть ниже качество |
 | GPU (CUDA) | 5–10× быстрее транскрибации |
-| Отключить постобработку в UI | убирает этап Ollama полностью |
-| `OLLAMA_NUM_PARALLEL=1` + `POSTPROCESS_CONCURRENCY=1` | лучший latency/стабильность на `i5-1135G7` |
+| Отключить постобработку в UI | убирает этап LLM полностью |
+| `POSTPROCESS_CONCURRENCY=4` (для openrouter) | параллельная обработка чанков |
+| `OLLAMA_NUM_PARALLEL=1` + `POSTPROCESS_CONCURRENCY=1` (для ollama) | лучший latency/стабильность на `i5-1135G7` |
 | `OLLAMA_KEEP_ALIVE=15m` | убирает лишние cold starts |
-| `qwen2.5:1.5b` | лучший баланс качества и скорости для этого ноутбука |
+| `qwen2.5:1.5b` (ollama) | лучший баланс качества и скорости для локального CPU |
+| `deepseek/deepseek-v4-pro` (openrouter) | качественная редактура; $0.435/$0.87 за 1M токенов in/out |
 | Кастомный `transkreebatoriya-qwen25-cpu` | тот же базовый вес, но с зашитыми параметрами через `Modelfile` (рендерится install-скриптом из `templates/`) |

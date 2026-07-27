@@ -25,9 +25,10 @@ runtimes:
 integrations:
   # Без этих компонентов пайплайн не работает.
   required: [ffmpeg, faster-whisper]
-  # Постобработка и GPU-ускорение — опциональны.
-  optional: [ollama, cuda]
+  # Постобработка: ровно один LLM-провайдер (ollama ИЛИ openrouter).
+  # CUDA — опциональное ускорение whisper.
+  optional: [ollama, openrouter, cuda]
 
 secrets:
   required: []
-  optional: [HF_TOKEN]
+  optional: [HF_TOKEN, OPENROUTER_API_KEY]

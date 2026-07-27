@@ -38,7 +38,10 @@ Use environment variables or a root `.env` file (full template with comments:
 ```dotenv
 APP_PORT=8001
 OLLAMA_PORT=11434
+LLM_PROVIDER=ollama            # или openrouter — тогда Ollama-контейнеры не нужны
 OLLAMA_MODEL=qwen3:4b
+# OPENROUTER_API_KEY=sk-or-xxxxxxxx
+# OPENROUTER_MODEL=deepseek/deepseek-v4-pro
 WHISPER_MODEL_NAME=base
 WHISPER_DEVICE=auto
 WHISPER_LANGUAGE=ru
@@ -49,3 +52,6 @@ TASK_TTL_HOURS=24
 ```
 
 Inside Docker, `OLLAMA_API_URL` is set to `http://ollama:11434/api/generate`.
+With `LLM_PROVIDER=openrouter` the app calls OpenRouter directly — the `ollama`
+and `ollama-init` services can be removed from `docker-compose.yml` (or simply
+left unused).

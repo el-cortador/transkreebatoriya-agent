@@ -29,15 +29,21 @@ class TranscriptionError(TranscribatoriyaError):
 # ── Постобработка ─────────────────────────────────────────────────────────────
 
 class PostprocessError(TranscribatoriyaError):
-    """Базовая ошибка постобработки через Ollama."""
+    """Базовая ошибка постобработки через LLM."""
 
 
 class OllamaUnavailableError(PostprocessError):
-    """Ollama недоступна (ошибка подключения)."""
+    """LLM-провайдер недоступен (ошибка подключения).
+
+    Имя историческое: покрывает любой провайдер (Ollama, OpenRouter, ...).
+    """
 
 
 class OllamaTimeoutError(PostprocessError):
-    """Ollama не ответила в отведённое время."""
+    """LLM-провайдер не ответил в отведённое время.
+
+    Имя историческое: покрывает любой провайдер (Ollama, OpenRouter, ...).
+    """
 
 
 # ── Задачи ────────────────────────────────────────────────────────────────────

@@ -10,12 +10,25 @@
 **Решение:** установить ffmpeg и добавить в `PATH`, либо задать полный путь
 в `FFMPEG_PATH` (`.env`). Проверка: `ffmpeg -version`.
 
-## 2. `Сервис Ollama недоступен`
+## 2. `LLM-сервис постобработки недоступен`
 
 **Симптом:** задачи с постобработкой завершаются `status=error`.
-**Причины:** Ollama не запущена или слушает другой хост/порт.
-**Решение:** `ollama serve`; проверить `OLLAMA_API_URL` в `.env`.
+
+**При `LLM_PROVIDER=ollama`:** Ollama не запущена или слушает другой
+хост/порт. Решение: `ollama serve`; проверить `OLLAMA_API_URL` в `.env`.
 Диагностика: `curl http://localhost:11434/api/version`.
+
+**При `LLM_PROVIDER=openrouter`:** нет интернета или недоступен OpenRouter.
+Диагностика: `curl https://openrouter.ai/api/v1/models -H "Authorization: Bearer $OPENROUTER_API_KEY"`.
+
+### Ошибки OpenRouter по HTTP-кодам
+
+| Код | Причина | Решение |
+|-----|---------|---------|
+| 401 | Неверный/отсутствующий ключ | Проверить `OPENROUTER_API_KEY` (openrouter.ai/keys) |
+| 402 | Недостаточно кредитов | Пополнить баланс OpenRouter |
+| 404 | Модель не найдена | Проверить slug в `OPENROUTER_MODEL` (напр. `deepseek/deepseek-v4-pro`) |
+| 429 | Rate limit | Уменьшить `POSTPROCESS_CONCURRENCY`, повторить позже |
 
 ## 3. Модель Ollama не скачана
 
@@ -68,4 +81,4 @@
 | HTTP-доступ | лог `transkreebatoriya.access` (поллинг `/api/status/` пишется не чаще раза в 3 мин на задачу) |
 | Стадии пайплайна | логи `[manager]`, `[transcription]`, `[postprocess]`, `[file_handler]` |
 | Отладка Ollama | `OLLAMA_DEBUG=1 ollama serve` |
-| Ключевые env | `OLLAMA_API_URL`, `OLLAMA_MODEL`, `WHISPER_MODEL_NAME`, `WHISPER_DEVICE`, `WHISPER_LANGUAGE`, `POSTPROCESS_*`, `MAX_FILE_SIZE_GB`, `TASK_TTL_HOURS` |
+| Ключевые env | `LLM_PROVIDER`, `OLLAMA_API_URL`, `OLLAMA_MODEL`, `OPENROUTER_API_KEY`, `OPENROUTER_MODEL`, `WHISPER_MODEL_NAME`, `WHISPER_DEVICE`, `WHISPER_LANGUAGE`, `POSTPROCESS_*`, `MAX_FILE_SIZE_GB`, `TASK_TTL_HOURS` |

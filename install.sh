@@ -49,8 +49,9 @@ step "Конфигурация"
 if [[ -f .env ]]; then
     skip ".env уже существует — не перезаписываю"
 else
-    cp templates/env.example .env
-    echo "    создан .env из templates/env.example"
+    # Минимальный .env: только активные переменные из шаблона, без комментариев
+    grep -E '^[A-Z][A-Z0-9_]*=' templates/env.example > .env
+    echo "    создан .env (только переменные) из templates/env.example"
 fi
 
 # Чтение значения из окружения / .env с дефолтом

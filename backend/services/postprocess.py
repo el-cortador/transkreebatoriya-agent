@@ -135,8 +135,8 @@ async def postprocess_text(
         logger.error("[postprocess] LLM timeout")
         raise OllamaTimeoutError("Превышено время постобработки текста") from e
     except httpx.ConnectError as e:
-        logger.error("[postprocess] LLM-сервис недоступен")
-        raise OllamaUnavailableError("Сервис Ollama недоступен") from e
+        logger.error("[postprocess] LLM-провайдер недоступен")
+        raise OllamaUnavailableError("LLM-сервис постобработки недоступен") from e
     except Exception as e:
         logger.error(f"[postprocess] Ошибка: {e}")
         raise PostprocessError(f"Ошибка постобработки текста: {e}") from e

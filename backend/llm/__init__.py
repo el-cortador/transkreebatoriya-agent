@@ -1,25 +1,32 @@
 """
 LLM-клиенты: провайдеро-независимый интерфейс + реализации.
 
-get_llm_client() возвращает разделяемый синглтон (переиспользует HTTP-соединения),
-close_llm_client() вызывается при остановке приложения.
+get_llm_client() возвращает разделяемый синглтон провайдера из настроек
+(LLM_PROVIDER: ollama | openrouter), close_llm_client() вызывается при
+остановке приложения.
 """
 
 from typing import Optional
 
 from backend.llm.base import LLMClient
 from backend.llm.ollama import OllamaClient
+from backend.llm.openrouter import OpenRouterClient
+from backend.settings import get_settings
 
-__all__ = ["LLMClient", "OllamaClient", "get_llm_client", "close_llm_client"]
+__all__ = ["LLMClient", "OllamaClient", "OpenRouterClient", "get_llm_client", "close_llm_client"]
 
-_default_client: Optional[OllamaClient] = None
+_default_client: Optional[LLMClient] = None
 
 
-def get_llm_client() -> OllamaClient:
-    """Разделяемый LLM-клиент по умолчанию (Ollama)."""
+def get_llm_client() -> LLMClient:
+    """Разделяемый LLM-клиент провайдера из настроек (LLM_PROVIDER)."""
     global _default_client
     if _default_client is None:
-        _default_client = OllamaClient()
+        settings = get_settings()
+        if settings.llm_provider == "openrouter":
+            _default_client = OpenRouterClient(settings)
+        else:
+            _default_client = OllamaClient(settings)
     return _default_client
 
 

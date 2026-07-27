@@ -39,6 +39,11 @@ class Settings(BaseSettings):
     # ── ffmpeg ────────────────────────────────────────────────────────────
     ffmpeg_path: str = "ffmpeg"
 
+    # ── LLM-провайдер постобработки ───────────────────────────────────────
+    # ollama — локальная Ollama (приватно, бесплатно).
+    # openrouter — облачный OpenRouter (текст транскрипции уходит во внешний API).
+    llm_provider: Literal["ollama", "openrouter"] = "ollama"
+
     # ── Ollama ────────────────────────────────────────────────────────────
     ollama_api_url: str = "http://localhost:11434/api/generate"
     ollama_model: str = "qwen2.5:1.5b"
@@ -56,6 +61,16 @@ class Settings(BaseSettings):
 
     # Таймаут одного запроса к Ollama в секундах (на один чанк).
     ollama_timeout: int = Field(default=1800, gt=0)
+
+    # ── OpenRouter (при llm_provider="openrouter") ────────────────────────
+    openrouter_api_key: Optional[str] = None
+    openrouter_base_url: str = "https://openrouter.ai/api/v1"
+    openrouter_model: str = "deepseek/deepseek-v4-pro"
+
+    # Таймаут одного запроса в секундах (на один чанк).
+    openrouter_timeout: int = Field(default=300, gt=0)
+    openrouter_temperature: float = Field(default=0.15, ge=0.0)
+    openrouter_max_tokens: int = Field(default=768, gt=0)
 
     # ── Постобработка ─────────────────────────────────────────────────────
     # Максимум символов в одном чанке постобработки.

@@ -11,13 +11,20 @@ if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {
 }
 
 if (-not (Test-Path ".env")) {
-    Copy-Item "templates/env.example" ".env"
-    Write-Host "Создан .env из templates/env.example"
+    $vars = Get-Content "templates/env.example" | Where-Object { $_ -match "^[A-Z][A-Z0-9_]*=" }
+    [System.IO.File]::WriteAllLines((Join-Path (Get-Location) ".env"), $vars, (New-Object System.Text.UTF8Encoding($false)))
+    Write-Host "Создан .env (только переменные) из templates/env.example"
 }
 
 # ── Ollama ────────────────────────────────────────────────────────────────────
 
-# Модель берётся из .env (OLLAMA_MODEL), дефолт совпадает с backend/config.py
+# Провайдер постобработки: при openrouter локальная Ollama не нужна
+$llmProvider = "ollama"
+$providerLine = Select-String -Path ".env" -Pattern "^\s*LLM_PROVIDER\s*=\s*(\S+)" | Select-Object -First 1
+if ($providerLine) { $llmProvider = $providerLine.Matches[0].Groups[1].Value }
+if ($env:LLM_PROVIDER) { $llmProvider = $env:LLM_PROVIDER }
+
+# Модель берётся из .env (OLLAMA_MODEL), дефолт совпадает с backend/settings.py
 $ollamaModel = "qwen2.5:1.5b"
 $envLine = Select-String -Path ".env" -Pattern "^\s*OLLAMA_MODEL\s*=\s*(\S+)" | Select-Object -First 1
 if ($envLine) { $ollamaModel = $envLine.Matches[0].Groups[1].Value }
@@ -32,34 +39,38 @@ function Test-Ollama {
     }
 }
 
-if (-not (Test-Ollama)) {
-    Write-Host "Запускаю Ollama..."
-    $env:OLLAMA_NUM_PARALLEL = "1"
-    $env:OLLAMA_MAX_LOADED_MODELS = "1"
-    Start-Process ollama -ArgumentList "serve" -WindowStyle Hidden
-    $started = $false
-    foreach ($i in 1..30) {
-        if (Test-Ollama) { $started = $true; break }
-        Start-Sleep -Seconds 1
+if ($llmProvider -eq "openrouter") {
+    Write-Host "LLM_PROVIDER=openrouter — локальная Ollama не нужна, пропускаю."
+} else {
+    if (-not (Test-Ollama)) {
+        Write-Host "Запускаю Ollama..."
+        $env:OLLAMA_NUM_PARALLEL = "1"
+        $env:OLLAMA_MAX_LOADED_MODELS = "1"
+        Start-Process ollama -ArgumentList "serve" -WindowStyle Hidden
+        $started = $false
+        foreach ($i in 1..30) {
+            if (Test-Ollama) { $started = $true; break }
+            Start-Sleep -Seconds 1
+        }
+        if (-not $started) {
+            Write-Warning "Ollama не поднялась за 30 секунд — постобработка будет недоступна."
+        }
     }
-    if (-not $started) {
-        Write-Warning "Ollama не поднялась за 30 секунд — постобработка будет недоступна."
-    }
-}
 
-if (Test-Ollama) {
-    $models = ollama list
-    if (-not ($models -match [regex]::Escape($ollamaModel))) {
-        if ($ollamaModel -eq "transkreebatoriya-qwen25-cpu") {
-            if (Test-Path ".\Modelfile.cpu-qwen25-1.5b") {
-                Write-Host "Создаю модель $ollamaModel из Modelfile..."
-                ollama create $ollamaModel -f .\Modelfile.cpu-qwen25-1.5b
+    if (Test-Ollama) {
+        $models = ollama list
+        if (-not ($models -match [regex]::Escape($ollamaModel))) {
+            if ($ollamaModel -eq "transkreebatoriya-qwen25-cpu") {
+                if (Test-Path ".\Modelfile.cpu-qwen25-1.5b") {
+                    Write-Host "Создаю модель $ollamaModel из Modelfile..."
+                    ollama create $ollamaModel -f .\Modelfile.cpu-qwen25-1.5b
+                } else {
+                    Write-Warning "Modelfile.cpu-qwen25-1.5b не найден — запустите .\install.ps1 для генерации из templates/"
+                }
             } else {
-                Write-Warning "Modelfile.cpu-qwen25-1.5b не найден — запустите .\install.ps1 для генерации из templates/"
+                Write-Host "Скачиваю модель $ollamaModel..."
+                ollama pull $ollamaModel
             }
-        } else {
-            Write-Host "Скачиваю модель $ollamaModel..."
-            ollama pull $ollamaModel
         }
     }
 }

@@ -48,8 +48,10 @@ Write-Step "Конфигурация"
 if (Test-Path ".env") {
     Write-Skip ".env уже существует — не перезаписываю"
 } else {
-    Copy-Item "templates/env.example" ".env"
-    Write-Host "    создан .env из templates/env.example"
+    # Минимальный .env: только активные переменные из шаблона, без комментариев
+    $vars = Get-Content "templates/env.example" | Where-Object { $_ -match "^[A-Z][A-Z0-9_]*=" }
+    [System.IO.File]::WriteAllLines((Join-Path (Get-Location) ".env"), $vars, (New-Object System.Text.UTF8Encoding($false)))
+    Write-Host "    создан .env (только переменные) из templates/env.example"
 }
 
 # Чтение значения из .env / окружения с дефолтом
